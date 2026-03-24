@@ -1,3 +1,6 @@
+import time
+from collections import defaultdict
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,12 +25,47 @@ from app.utils.auth import (
 
 router = APIRouter()
 
+# In-memory brute-force tracker: {email: [timestamp, timestamp, ...]}
+_login_failures: dict[str, list[float]] = defaultdict(list)
+_BRUTE_FORCE_MAX_ATTEMPTS = 5
+_BRUTE_FORCE_WINDOW_SECONDS = 900  # 15 minutes
+
+
+def _check_brute_force(email: str) -> None:
+    """Raise 429 if too many recent failed attempts for this email."""
+    now = time.monotonic()
+    # Prune old entries outside the window
+    _login_failures[email] = [
+        t for t in _login_failures[email] if now - t < _BRUTE_FORCE_WINDOW_SECONDS
+    ]
+    if len(_login_failures[email]) >= _BRUTE_FORCE_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"เข้าสู่ระบบล้มเหลวเกินกำหนด ({_BRUTE_FORCE_MAX_ATTEMPTS} ครั้ง) กรุณาลองใหม่ใน 15 นาที",
+        )
+
+
+def _record_failure(email: str) -> None:
+    """Record a failed login attempt."""
+    _login_failures[email].append(time.monotonic())
+
+
+def _clear_failures(email: str) -> None:
+    """Clear failure history after successful login."""
+    _login_failures.pop(email, None)
+
 
 @router.post(
     "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
 async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
     """Register a new user with email and password."""
+    if len(data.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร",
+        )
+
     result = await db.execute(select(User).where(User.email == data.email))
     if result.scalar_one_or_none() is not None:
         raise HTTPException(
@@ -49,16 +87,20 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     """Login with email and password, returns JWT tokens."""
+    _check_brute_force(data.email)
+
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
 
     if user is None or user.password_hash is None:
+        _record_failure(data.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="อีเมลหรือรหัสผ่านไม่ถูกต้อง",
         )
 
     if not verify_password(data.password, user.password_hash):
+        _record_failure(data.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="อีเมลหรือรหัสผ่านไม่ถูกต้อง",
@@ -69,6 +111,8 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="บัญชีถูกระงับ",
         )
+
+    _clear_failures(data.email)
 
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
