@@ -21,7 +21,7 @@ class QdrantService:
         self.client = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
         self.collection = settings.qdrant_collection
 
-    async def ensure_collection(self) -> None:
+    def ensure_collection(self) -> None:
         """Create the collection if it doesn't exist."""
         collections = self.client.get_collections().collections
         names = [c.name for c in collections]

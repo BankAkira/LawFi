@@ -17,11 +17,6 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import Base
 from app.models.ruling import CaseType, Ruling, RulingResult
-from app.services.embedding_service import EmbeddingService
-from app.services.qdrant_service import QdrantService
-from pipeline.extractor import RulingExtractor
-from pipeline.ocr import OCRService
-from pipeline.storage import R2Storage
 
 logging.basicConfig(
     level=logging.INFO,
@@ -75,6 +70,7 @@ def process_single_pdf(
     """
     filename = pdf_path.name
     logger.info(f"Processing: {filename}")
+    raw_text = ""
 
     try:
         # Step 1: OCR -- extract text from PDF
@@ -166,14 +162,18 @@ def process_single_pdf(
         logger.error(f"  Failed: {filename} -- {e}")
         session.rollback()
 
-        # Store error for later retry
+        # Store error for later retry -- use a generated error key, NOT the
+        # filename, to avoid unique constraint violations with real ruling numbers.
         try:
+            import uuid
+
+            error_key = f"ERROR_{uuid.uuid4().hex[:12]}"
             ruling = Ruling(
-                ruling_number=filename,
+                ruling_number=error_key,
                 year=0,
-                full_text=raw_text if "raw_text" in dir() else "",
+                full_text=raw_text,
                 is_processed=False,
-                processing_error=str(e),
+                processing_error=f"[{filename}] {e}",
             )
             session.add(ruling)
             session.commit()
@@ -203,6 +203,13 @@ def run_pipeline(pdf_dir: str, batch_size: int = 10) -> None:
     pdf_files = sorted(pdf_dir.glob("*.pdf"))
     total = len(pdf_files)
     logger.info(f"Found {total} PDF files in {pdf_dir}")
+
+    # Lazy imports -- these require cloud SDKs not needed in tests
+    from app.services.embedding_service import EmbeddingService
+    from app.services.qdrant_service import QdrantService
+    from pipeline.extractor import RulingExtractor
+    from pipeline.ocr import OCRService
+    from pipeline.storage import R2Storage
 
     # Initialize services
     ocr = OCRService()

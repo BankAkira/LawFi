@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     r2_secret_access_key: str = ""
     r2_bucket_name: str = "lawfi-pdfs"
     r2_endpoint: str = ""
+    r2_public_url: str = ""  # e.g. https://pub-xxx.r2.dev or custom domain
 
     # Vertex AI Embedding
     embedding_model: str = "text-multilingual-embedding-002"

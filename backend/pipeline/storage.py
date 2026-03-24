@@ -29,7 +29,12 @@ class R2Storage:
             object_key,
             ExtraArgs={"ContentType": "application/pdf"},
         )
-        return f"{settings.r2_endpoint}/{self.bucket}/{object_key}"
+        # Use the public URL (r2.dev or custom domain), not the S3 API endpoint
+        base = (
+            settings.r2_public_url
+            or f"https://{settings.r2_bucket_name}.{settings.r2_account_id}.r2.dev"
+        )
+        return f"{base}/{object_key}"
 
     def download_pdf(self, object_key: str, local_path: str | Path) -> None:
         """Download a PDF from R2."""
