@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Database
-    database_url: str = "postgresql+asyncpg://lawfi:lawfi@localhost:5432/lawfi"
+    database_url: str = "postgresql+asyncpg://lawfi:lawfi@localhost:5433/lawfi"
 
     # Auth
     secret_key: str = "change-me-in-production"

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,8 +9,9 @@ from app.models.search_history import SearchHistory
 from app.models.user import SubscriptionTier, User
 from app.schemas.ruling import RulingListItem
 from app.schemas.search import SearchRequest, SearchResponse
-from app.services.embedding_service import EmbeddingService
-from app.services.qdrant_service import QdrantService
+
+# Lazy imports: these depend on google-cloud and qdrant-client which may not
+# be installed in test environments.  Imported inside the methods that need them.
 
 
 class SearchService:
@@ -124,6 +125,9 @@ class SearchService:
     async def _semantic_search(self, request: SearchRequest) -> list[dict]:
         """Qdrant vector similarity search."""
         try:
+            from app.services.embedding_service import EmbeddingService
+            from app.services.qdrant_service import QdrantService
+
             embedding_service = EmbeddingService()
             query_vector = embedding_service.embed_text(request.query)
 
@@ -204,7 +208,7 @@ class SearchService:
         today = date.today()
         if user.last_search_date is None or user.last_search_date.date() != today:
             user.daily_search_count = 1
-            user.last_search_date = datetime.utcnow()
+            user.last_search_date = datetime.now(UTC)
         else:
             user.daily_search_count += 1
         await self.db.commit()
