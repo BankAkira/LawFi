@@ -22,12 +22,20 @@ export default function Navbar() {
                 ค้นหา
               </Link>
               {user && (
-                <Link
-                  href="/bookmarks"
-                  className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-                >
-                  บุ๊คมาร์ค
-                </Link>
+                <>
+                  <Link
+                    href="/bookmarks"
+                    className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                  >
+                    บุ๊คมาร์ค
+                  </Link>
+                  <Link
+                    href="/history"
+                    className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                  >
+                    ประวัติ
+                  </Link>
+                </>
               )}
             </div>
           </div>
@@ -37,7 +45,12 @@ export default function Navbar() {
               <div className="h-8 w-20 bg-gray-200 animate-pulse rounded" />
             ) : user ? (
               <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600">{user.name}</span>
+                <Link
+                  href="/profile"
+                  className="text-sm text-gray-600 hover:text-gray-900"
+                >
+                  {user.name}
+                </Link>
                 <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">
                   {user.subscription_tier.toUpperCase()}
                 </span>

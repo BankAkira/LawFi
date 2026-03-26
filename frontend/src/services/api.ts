@@ -1,6 +1,7 @@
 import type {
   RulingDetail,
   RulingListItem,
+  SearchHistoryItem,
   SearchRequest,
   SearchResponse,
   TokenResponse,
@@ -176,6 +177,11 @@ class ApiClient {
 
   async getBookmarkStatus(rulingId: number): Promise<{ bookmarked: boolean }> {
     return this.request<{ bookmarked: boolean }>(`/bookmarks/${rulingId}/status`);
+  }
+
+  // --- History ---
+  async getHistory(): Promise<SearchHistoryItem[]> {
+    return this.request<SearchHistoryItem[]>("/history/");
   }
 }
 

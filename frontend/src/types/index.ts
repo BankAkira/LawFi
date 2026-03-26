@@ -87,3 +87,13 @@ export interface SearchResponse {
   page_size: number;
   query: string;
 }
+
+// History types
+export interface SearchHistoryItem {
+  id: number;
+  query: string;
+  search_type: string;
+  results_count: number;
+  filters_applied: string | null;
+  created_at: string;
+}
