@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, bookmarks, rulings, search
+from app.api import admin, auth, bookmarks, history, rulings, search
 from app.config import settings
 
 app = FastAPI(
@@ -25,6 +25,8 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(rulings.router, prefix="/api/rulings", tags=["rulings"])
 app.include_router(bookmarks.router, prefix="/api/bookmarks", tags=["bookmarks"])
+app.include_router(history.router, prefix="/api/history", tags=["history"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
 
 @app.get("/api/health")

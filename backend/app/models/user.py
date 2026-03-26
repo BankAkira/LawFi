@@ -27,13 +27,10 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(255))
     auth_provider: Mapped[AuthProvider] = mapped_column(default=AuthProvider.EMAIL)
-    subscription_tier: Mapped[SubscriptionTier] = mapped_column(
-        default=SubscriptionTier.FREE
-    )
+    subscription_tier: Mapped[SubscriptionTier] = mapped_column(default=SubscriptionTier.FREE)
     is_active: Mapped[bool] = mapped_column(default=True)
+    is_admin: Mapped[bool] = mapped_column(default=False)
     daily_search_count: Mapped[int] = mapped_column(default=0)
     last_search_date: Mapped[datetime | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), onupdate=func.now()
-    )
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
