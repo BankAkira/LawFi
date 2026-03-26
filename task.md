@@ -54,25 +54,37 @@ Parent PRD: [#1](https://github.com/BankAkira/LawFi/issues/1)
 | Status | Issue | Title | Type | Blocked by |
 |--------|-------|-------|------|------------|
 | [x] | [#11](https://github.com/BankAkira/LawFi/issues/11) | Search History End-to-End | AFK | #4, #8 |
-| [ ] | [#14](https://github.com/BankAkira/LawFi/issues/14) | Frontend Polish & E2E Tests | AFK | #4, #8, #10 |
+| [x] | [#14](https://github.com/BankAkira/LawFi/issues/14) | Frontend Polish & E2E Tests | AFK | #4, #8, #10 |
 
 ## Test Summary
 
-**43 tests passing** across 7 test files:
+**54 tests passing** across 9 test files:
+
+### Backend (47 tests)
 
 | File | Tests | Coverage |
 |------|-------|----------|
 | test_health.py | 1 | Health check endpoint |
 | test_auth.py | 13 | Register (3), login (4), refresh (2), me (2), brute-force (2) |
+| test_google_auth.py | 4 | New user, existing user, email conflict, invalid token |
 | test_pipeline.py | 4 | Happy path, dedup, OCR failure, Claude failure |
 | test_search.py | 9 | Keyword, ruling number, 4 filters, no-auth, rate limit (2) |
 | test_rulings.py | 11 | Ruling by ID/number (4), bookmarks CRUD+status (7) |
 | test_history.py | 3 | Empty, records, user-scoped |
 | test_admin.py | 2 | Admin stats, non-admin 403 |
 
-## Remaining
+### Frontend E2E (7 tests)
 
-| Issue | Reason | Next step |
-|-------|--------|-----------|
-| #12 Google OAuth | HITL -- requires Google Cloud Console credentials | Set up OAuth client ID, then implement |
-| #14 Frontend Polish + E2E | Needs Playwright setup + responsive fixes | Install Playwright, write 4 E2E flows |
+| Test | Coverage |
+|------|----------|
+| Homepage renders | Search box, branding |
+| Filters toggle | Show/hide advanced filters |
+| Search navigation | Query -> results page |
+| Login page | Form renders |
+| Register page | Form renders |
+| Login link | Navigate from register |
+| Responsive mobile | 375px viewport |
+
+## Status: COMPLETE
+
+All 13 issues closed. MVP backend + frontend ready for deployment.
