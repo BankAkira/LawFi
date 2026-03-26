@@ -24,12 +24,10 @@ async def get_ruling(ruling_id: int, db: AsyncSession = Depends(get_db)):
     return ruling
 
 
-@router.get("/number/{ruling_number}", response_model=RulingDetail)
+@router.get("/number/{ruling_number:path}", response_model=RulingDetail)
 async def get_ruling_by_number(ruling_number: str, db: AsyncSession = Depends(get_db)):
     """Get ruling by its official number (e.g. '1234/2565')."""
-    result = await db.execute(
-        select(Ruling).where(Ruling.ruling_number == ruling_number)
-    )
+    result = await db.execute(select(Ruling).where(Ruling.ruling_number == ruling_number))
     ruling = result.scalar_one_or_none()
 
     if ruling is None:

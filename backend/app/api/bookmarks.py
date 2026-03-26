@@ -28,6 +28,19 @@ async def list_bookmarks(
     return rulings
 
 
+@router.get("/{ruling_id}/status")
+async def bookmark_status(
+    ruling_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Check if a ruling is bookmarked by the current user."""
+    result = await db.execute(
+        select(Bookmark).where(Bookmark.user_id == user.id, Bookmark.ruling_id == ruling_id)
+    )
+    return {"bookmarked": result.scalar_one_or_none() is not None}
+
+
 @router.post("/{ruling_id}", status_code=status.HTTP_201_CREATED)
 async def add_bookmark(
     ruling_id: int,
@@ -45,9 +58,7 @@ async def add_bookmark(
 
     # Check if already bookmarked
     result = await db.execute(
-        select(Bookmark).where(
-            Bookmark.user_id == user.id, Bookmark.ruling_id == ruling_id
-        )
+        select(Bookmark).where(Bookmark.user_id == user.id, Bookmark.ruling_id == ruling_id)
     )
     if result.scalar_one_or_none() is not None:
         raise HTTPException(
@@ -69,9 +80,7 @@ async def remove_bookmark(
 ):
     """Remove a bookmark."""
     result = await db.execute(
-        delete(Bookmark).where(
-            Bookmark.user_id == user.id, Bookmark.ruling_id == ruling_id
-        )
+        delete(Bookmark).where(Bookmark.user_id == user.id, Bookmark.ruling_id == ruling_id)
     )
     if result.rowcount == 0:
         raise HTTPException(
