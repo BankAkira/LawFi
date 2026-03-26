@@ -185,3 +185,64 @@ async def test_search_no_auth_returns_401(client: AsyncClient, db: AsyncSession)
     )
 
     assert response.status_code in (401, 403)
+
+
+# ── rate limiting ────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_free_user_rate_limited_at_10(client: AsyncClient, db: AsyncSession):
+    """Free-tier user is blocked after 10 searches per day."""
+    await _seed_rulings(db)
+    headers = await _auth_headers(client)
+
+    # 10 searches should succeed
+    for i in range(10):
+        resp = await client.post(
+            "/api/search/",
+            json={"query": f"ค้นหา{i}"},
+            headers=headers,
+        )
+        assert resp.status_code == 200, f"Search {i + 1} failed: {resp.status_code}"
+
+    # 11th should be rate limited
+    resp = await client.post(
+        "/api/search/",
+        json={"query": "อีกครั้ง"},
+        headers=headers,
+    )
+    assert resp.status_code == 429
+    assert "ขีดจำกัด" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_pro_user_unlimited(client: AsyncClient, db: AsyncSession):
+    """Pro-tier user is not rate limited."""
+    await _seed_rulings(db)
+
+    # Register as pro user
+    pro = {"email": "pro@test.com", "password": "propass12", "name": "ProUser"}
+    await client.post("/api/auth/register", json=pro)
+
+    # Upgrade to pro directly in DB
+    from sqlalchemy import update
+
+    from app.models.user import User
+
+    await db.execute(update(User).where(User.email == pro["email"]).values(subscription_tier="pro"))
+    await db.commit()
+
+    resp = await client.post(
+        "/api/auth/login",
+        json={"email": pro["email"], "password": pro["password"]},
+    )
+    headers = {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+    # 15 searches -- all should succeed for pro
+    for i in range(15):
+        resp = await client.post(
+            "/api/search/",
+            json={"query": f"ค้นหา{i}"},
+            headers=headers,
+        )
+        assert resp.status_code == 200, f"Pro search {i + 1} failed: {resp.status_code}"

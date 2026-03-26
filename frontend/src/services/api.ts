@@ -164,6 +164,10 @@ class ApiClient {
   async removeBookmark(rulingId: number): Promise<void> {
     await this.request("/bookmarks/" + rulingId, { method: "DELETE" });
   }
+
+  async getBookmarkStatus(rulingId: number): Promise<{ bookmarked: boolean }> {
+    return this.request<{ bookmarked: boolean }>(`/bookmarks/${rulingId}/status`);
+  }
 }
 
 const api = new ApiClient(API_BASE);

@@ -20,6 +20,15 @@ export default function RulingDetailPage() {
       try {
         const data = await api.getRuling(Number(params.id));
         setRuling(data);
+        // Fetch bookmark status if user is logged in
+        if (user) {
+          try {
+            const status = await api.getBookmarkStatus(data.id);
+            setBookmarked(status.bookmarked);
+          } catch {
+            // Ignore -- user might not have bookmark permissions
+          }
+        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลฎีกาได้"
@@ -30,7 +39,7 @@ export default function RulingDetailPage() {
     };
 
     if (params.id) fetchRuling();
-  }, [params.id]);
+  }, [params.id, user]);
 
   const toggleBookmark = async () => {
     if (!ruling) return;

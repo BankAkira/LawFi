@@ -24,7 +24,7 @@ function SearchResults() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!query) return;
+    if (!query || !user) return;
 
     const doSearch = async () => {
       setLoading(true);
@@ -41,16 +41,15 @@ function SearchResults() {
         setResults(response.results);
         setTotal(response.total);
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการค้นหา"
-        );
+        const msg = err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการค้นหา";
+        setError(msg);
       } finally {
         setLoading(false);
       }
     };
 
     doSearch();
-  }, [query, caseType, yearFrom, yearTo, page]);
+  }, [query, caseType, yearFrom, yearTo, page, user]);
 
   if (!query) {
     router.push("/");
