@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import Select, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,9 +40,7 @@ class SearchService:
         # Fetch full ruling data for results
         if page_results:
             ruling_ids = [r["ruling_id"] for r in page_results]
-            result = await self.db.execute(
-                select(Ruling).where(Ruling.id.in_(ruling_ids))
-            )
+            result = await self.db.execute(select(Ruling).where(Ruling.id.in_(ruling_ids)))
             rulings_map = {r.id: r for r in result.scalars().all()}
 
             items = []
@@ -63,11 +61,8 @@ class SearchService:
         else:
             items = []
 
-        # Log search history
-        await self._log_search(user.id, request, len(merged))
-
-        # Update daily search count
-        await self._increment_search_count(user)
+        # Log search history + update search count in one atomic commit
+        await self._record_search(user, request, len(merged))
 
         return SearchResponse(
             results=items,
@@ -83,9 +78,7 @@ class SearchService:
 
         # Suggest matching ruling numbers
         result = await self.db.execute(
-            select(Ruling.ruling_number)
-            .where(Ruling.ruling_number.ilike(f"%{query}%"))
-            .limit(5)
+            select(Ruling.ruling_number).where(Ruling.ruling_number.ilike(f"%{query}%")).limit(5)
         )
         suggestions.extend([f"ฎีกา {r}" for r in result.scalars().all()])
 
@@ -118,9 +111,7 @@ class SearchService:
         result = await self.db.execute(query)
         rows = result.all()
 
-        return [
-            {"ruling_id": row.id, "score": 1.0, "source": "keyword"} for row in rows
-        ]
+        return [{"ruling_id": row.id, "score": 1.0, "source": "keyword"} for row in rows]
 
     async def _semantic_search(self, request: SearchRequest) -> list[dict]:
         """Qdrant vector similarity search."""
@@ -186,6 +177,9 @@ class SearchService:
             query = query.where(Ruling.year <= request.year_to)
         if request.result:
             query = query.where(Ruling.result == request.result)
+        if request.keywords:
+            # PostgreSQL ARRAY overlap: ruling.keywords && ARRAY[...]
+            query = query.where(Ruling.keywords.overlap(request.keywords))
         return query
 
     async def _check_rate_limit(self, user: User) -> None:
@@ -203,19 +197,42 @@ class SearchService:
                     detail=f"ถึงขีดจำกัดการค้นหารายวัน ({settings.free_daily_searches} ครั้ง/วัน) กรุณาอัปเกรดเป็น Pro",
                 )
 
-    async def _increment_search_count(self, user: User) -> None:
-        """Increment user's daily search count."""
+    async def _record_search(self, user: User, request: SearchRequest, results_count: int) -> None:
+        """Log search history and update daily count in one atomic commit."""
+        import json
+
+        # Update daily search count
         today = date.today()
         if user.last_search_date is None or user.last_search_date.date() != today:
             user.daily_search_count = 1
-            user.last_search_date = datetime.now(UTC)
+            user.last_search_date = datetime.now(timezone.utc).replace(tzinfo=None)
         else:
             user.daily_search_count += 1
+
+        # Log search history
+        filters = {}
+        if request.case_type:
+            filters["case_type"] = request.case_type.value
+        if request.year_from:
+            filters["year_from"] = request.year_from
+        if request.year_to:
+            filters["year_to"] = request.year_to
+        if request.result:
+            filters["result"] = request.result.value
+
+        history = SearchHistory(
+            user_id=user.id,
+            query=request.query,
+            search_type="hybrid",
+            results_count=results_count,
+            filters_applied=json.dumps(filters, ensure_ascii=False) if filters else None,
+        )
+        self.db.add(history)
+
+        # Single atomic commit for both operations
         await self.db.commit()
 
-    async def _log_search(
-        self, user_id: int, request: SearchRequest, results_count: int
-    ) -> None:
+    async def _log_search(self, user_id: int, request: SearchRequest, results_count: int) -> None:
         """Log search to history."""
         import json
 
@@ -234,9 +251,7 @@ class SearchService:
             query=request.query,
             search_type="hybrid",
             results_count=results_count,
-            filters_applied=json.dumps(filters, ensure_ascii=False)
-            if filters
-            else None,
+            filters_applied=json.dumps(filters, ensure_ascii=False) if filters else None,
         )
         self.db.add(history)
         await self.db.commit()
