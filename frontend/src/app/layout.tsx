@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import GoogleAuthWrapper from "@/components/GoogleAuthWrapper";
 import Navbar from "@/components/Navbar";
 
 const notoSansThai = Noto_Sans_Thai({
@@ -23,10 +24,12 @@ export default function RootLayout({
   return (
     <html lang="th" className={`${notoSansThai.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-[family-name:var(--font-noto-thai)] bg-gray-50 text-gray-900">
-        <AuthProvider>
-          <Navbar />
-          <main className="flex-1">{children}</main>
-        </AuthProvider>
+        <GoogleAuthWrapper>
+          <AuthProvider>
+            <Navbar />
+            <main className="flex-1">{children}</main>
+          </AuthProvider>
+        </GoogleAuthWrapper>
       </body>
     </html>
   );

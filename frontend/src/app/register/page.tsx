@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import GoogleLoginButton from "@/components/GoogleLoginButton";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -122,6 +123,14 @@ export default function RegisterPage() {
           >
             {loading ? "กำลังสมัคร..." : "สมัครสมาชิก"}
           </button>
+
+          <div className="my-4 flex items-center gap-3">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-sm text-gray-400">หรือ</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          <GoogleLoginButton />
 
           <p className="mt-4 text-center text-sm text-gray-500">
             มีบัญชีแล้ว?{" "}

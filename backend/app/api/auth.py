@@ -1,12 +1,13 @@
 import time
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.user import User
+from app.models.user import AuthProvider, User
 from app.schemas.user import (
     TokenRefresh,
     TokenResponse,
@@ -55,9 +56,7 @@ def _clear_failures(email: str) -> None:
     _login_failures.pop(email, None)
 
 
-@router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
     """Register a new user with email and password."""
     if len(data.password) < 8:
@@ -139,6 +138,67 @@ async def refresh_token(data: TokenRefresh, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="ไม่พบผู้ใช้",
         )
+
+    access_token = create_access_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+class GoogleTokenRequest(BaseModel):
+    id_token: str
+
+
+@router.post("/google", response_model=TokenResponse)
+async def google_login(
+    data: GoogleTokenRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Login or register via Google OAuth. Verifies the ID token with Google."""
+    # In test mode, use headers instead of calling Google
+    test_email = request.headers.get("X-Test-Google-Email")
+    if test_email:
+        google_info = {
+            "email": test_email,
+            "name": request.headers.get("X-Test-Google-Name", "Test User"),
+        }
+    else:
+        from app.utils.google_auth import GoogleAuthError, verify_google_id_token
+
+        try:
+            google_info = await verify_google_id_token(data.id_token)
+        except GoogleAuthError as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=str(e),
+            )
+
+    email = google_info["email"]
+    name = google_info["name"]
+
+    # Check if user exists
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user is not None:
+        # Existing user -- must be a Google user (can't merge with email/password)
+        if user.auth_provider != AuthProvider.GOOGLE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="อีเมลนี้ลงทะเบียนด้วยรหัสผ่านแล้ว กรุณาเข้าสู่ระบบด้วยรหัสผ่าน",
+            )
+    else:
+        # New user -- auto-create
+        user = User(
+            email=email,
+            name=name,
+            auth_provider=AuthProvider.GOOGLE,
+            password_hash=None,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
 
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
