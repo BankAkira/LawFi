@@ -1,9 +1,9 @@
 """Pipeline tests with mocked external services."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 

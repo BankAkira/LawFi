@@ -1,9 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import auth, bookmarks, rulings, search
 from app.config import settings
-from app.api import auth, search, rulings, bookmarks
-
 
 app = FastAPI(
     title=settings.app_name,

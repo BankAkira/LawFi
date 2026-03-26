@@ -1,6 +1,5 @@
 """OCR module using Google Cloud Vision API for Thai text extraction from PDFs."""
 
-import io
 from pathlib import Path
 
 from google.cloud import vision

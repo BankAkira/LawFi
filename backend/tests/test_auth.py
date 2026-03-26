@@ -1,7 +1,6 @@
 import pytest
 from httpx import AsyncClient
 
-
 # ── helpers ──────────────────────────────────────────────────────────
 
 VALID_USER = {"email": "test@example.com", "password": "secure123", "name": "Test"}
@@ -109,6 +108,7 @@ async def test_login_inactive_user(client: AsyncClient, db):
     await register(client)
     # Suspend the user directly via DB
     from sqlalchemy import update
+
     from app.models.user import User
 
     await db.execute(

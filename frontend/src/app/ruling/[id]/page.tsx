@@ -42,7 +42,7 @@ export default function RulingDetailPage() {
         await api.addBookmark(ruling.id);
         setBookmarked(true);
       }
-    } catch (err) {
+    } catch {
       // Ignore bookmark errors
     }
   };

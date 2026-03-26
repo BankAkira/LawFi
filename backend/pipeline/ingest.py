@@ -4,12 +4,15 @@ Usage:
     python -m pipeline.ingest --pdf-dir /path/to/pdfs --batch-size 10
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
@@ -17,6 +20,13 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import Base
 from app.models.ruling import CaseType, Ruling, RulingResult
+
+if TYPE_CHECKING:
+    from app.services.embedding_service import EmbeddingService
+    from app.services.qdrant_service import QdrantService
+    from pipeline.extractor import RulingExtractor
+    from pipeline.ocr import OCRService
+    from pipeline.storage import R2Storage
 
 logging.basicConfig(
     level=logging.INFO,
@@ -74,14 +84,14 @@ def process_single_pdf(
 
     try:
         # Step 1: OCR -- extract text from PDF
-        logger.info(f"  [1/5] OCR: extracting text...")
+        logger.info("  [1/5] OCR: extracting text...")
         raw_text = ocr.extract_text_from_pdf(pdf_path)
         if not raw_text or len(raw_text.strip()) < 50:
             logger.warning(f"  Skipped: insufficient text extracted from {filename}")
             return False
 
         # Step 2: Claude -- extract structured data
-        logger.info(f"  [2/5] Claude: extracting structured data...")
+        logger.info("  [2/5] Claude: extracting structured data...")
         extracted = extractor.extract(raw_text)
 
         ruling_number = extracted.get("ruling_number")
@@ -98,12 +108,12 @@ def process_single_pdf(
             return True
 
         # Step 3: Upload PDF to R2
-        logger.info(f"  [3/5] R2: uploading PDF...")
+        logger.info("  [3/5] R2: uploading PDF...")
         object_key = f"rulings/{ruling_number.replace('/', '_')}.pdf"
         pdf_url = r2.upload_pdf(pdf_path, object_key)
 
         # Step 4: Generate embedding
-        logger.info(f"  [4/5] Vertex AI: generating embedding...")
+        logger.info("  [4/5] Vertex AI: generating embedding...")
         # Combine summary + facts + issues for embedding
         embed_text = " ".join(
             filter(
@@ -119,7 +129,7 @@ def process_single_pdf(
         embedding = embedding_service.embed_text(embed_text[:10000])
 
         # Step 5: Store in PG + Qdrant
-        logger.info(f"  [5/5] Storing in PG + Qdrant...")
+        logger.info("  [5/5] Storing in PG + Qdrant...")
         ruling = Ruling(
             ruling_number=ruling_number,
             year=extracted.get("year", 0),
@@ -237,7 +247,7 @@ def run_pipeline(pdf_dir: str, batch_size: int = 10) -> None:
 
         # Rate limiting: avoid hitting API quotas
         if i % batch_size == 0:
-            logger.info(f"Batch complete. Pausing 2s...")
+            logger.info("Batch complete. Pausing 2s...")
             time.sleep(2)
 
     session.close()
@@ -246,12 +256,8 @@ def run_pipeline(pdf_dir: str, batch_size: int = 10) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LawFi PDF ingestion pipeline")
-    parser.add_argument(
-        "--pdf-dir", required=True, help="Directory containing PDF files"
-    )
-    parser.add_argument(
-        "--batch-size", type=int, default=10, help="Pause every N files"
-    )
+    parser.add_argument("--pdf-dir", required=True, help="Directory containing PDF files")
+    parser.add_argument("--batch-size", type=int, default=10, help="Pause every N files")
     args = parser.parse_args()
 
     run_pipeline(args.pdf_dir, args.batch_size)
